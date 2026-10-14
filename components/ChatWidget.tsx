@@ -50,14 +50,17 @@ export default function ChatWidget() {
   useEffect(() => save(msgs.filter((m) => !m.error)), [msgs]);
 
   useEffect(() => {
+    const lastMsg = msgs[msgs.length - 1];
+    if (open || (lastMsg && lastMsg.role === "assistant")) {
+      listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: "smooth" });
+    }
+  }, [msgs, open]);
+
+  useEffect(() => {
     if (loading) {
       listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: "smooth" });
     }
   }, [loading]);
-
-  useEffect(() => {
-    listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: "smooth" });
-  }, [msgs, open]);
 
   useEffect(() => {
     if (open) setTimeout(() => inputRef.current?.focus(), 150);
