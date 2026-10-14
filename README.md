@@ -1,44 +1,76 @@
-# DHA Property Assistant — Next.js frontend
+# 🏠 DHA Property Assistant (Frontend)
 
-Floating chat widget for the DHA chatbot (FastAPI + Groq backend).
+A modern, lightweight floating chat widget built with **Next.js** and **TypeScript**. This frontend serves as the user interface for the DHA Lahore Property Assistant, allowing users to query real-time property listings, prices, and phase details.
 
-## Run locally (VS Code terminal)
+## 🌟 Features
 
+- **Floating Widget**: A non-intrusive chat launcher that can be embedded into any existing website.
+- **Real-time Queries**: Integration with a FastAPI backend that leverages Groq LLM and the `dhaconnects` API.
+- **Smart Suggestions**: Quick-start chips to help users discover how to ask about plots, houses, and commercial properties.
+- **Rich Formatting**: Support for Markdown and GFM (GitHub Flavored Markdown) for clean, readable property lists and tables.
+- **Session Persistence**: Chat history is stored in `localStorage`, ensuring conversations are preserved across page refreshes.
+- **Server-Side Proxy**: Uses Next.js API routes to mask the backend URL and eliminate CORS issues.
+- **Responsive Design**: Fully mobile-optimized interface with auto-expanding text inputs.
+
+## 🚀 Quickstart
+
+### 1. Prerequisites
+- Node.js (v18 or later)
+- npm or yarn
+
+### 2. Installation
+Clone the repository and install dependencies:
 ```bash
 npm install
-cp .env.example .env.local      # Windows: copy .env.example .env.local
+```
+
+### 3. Configuration
+Create a `.env.local` file in the root directory:
+```bash
+cp .env.example .env.local
+```
+Open `.env.local` and set your backend URL:
+```env
+# Use this for the production Render backend
+BACKEND_URL=https://dha-chatbot.onrender.com
+
+# OR use this if running the FastAPI backend locally
+# BACKEND_URL=http://127.0.0.1:8000
+```
+
+### 4. Run Development Server
+```bash
 npm run dev
 ```
+Visit [http://localhost:3000](http://localhost:3000) and click the chat icon in the bottom-right corner.
 
-Open http://localhost:3000 and click the chat button in the bottom-right.
+---
 
-To use your local backend instead of Render, set this in `.env.local`:
+## 🛠️ Technical Architecture
 
-```
-BACKEND_URL=http://127.0.0.1:8000
-```
+### Data Flow
+`User Input` $\rightarrow$ `ChatWidget.tsx` $\rightarrow$ `/api/chat` (Next.js Proxy) $\rightarrow$ `FastAPI Backend` $\rightarrow$ `Groq LLM + DHA API` $\rightarrow$ `Response`
 
-## How it works
+### Key Files
+- **`components/ChatWidget.tsx`**: The core UI component handling state, message rendering, and API calls.
+- **`app/api/chat/route.ts`**: A server-side proxy that forwards requests to the backend to keep the `BACKEND_URL` secure.
+- **`app/page.tsx`**: A demo landing page showcasing the widget in action.
+- **`app/theme.css`**: Centralized styling for colors, fonts, and branding.
 
-```
-Browser ──► /api/chat (Next.js route) ──► BACKEND_URL/chat (FastAPI) ──► Groq + dhaconnects API
-```
+## 📦 Deployment
 
-- `components/ChatWidget.tsx` — the widget: launcher, panel, messages, suggestions, markdown, retry.
-- `app/api/chat/route.ts` — server-side proxy, so the backend URL stays private and there are no CORS issues.
-- `app/theme.css` — **all colors, font and corner radius.** Change these to restyle the whole bot.
-
-Chat history is kept in the browser (localStorage) and the last 10 turns are sent with each message.
-
-## Deploy (Vercel)
-
-1. Push this folder to GitHub.
-2. Import it on vercel.com.
-3. Add environment variable `BACKEND_URL=https://dha-chatbot.onrender.com`.
+### Vercel (Recommended)
+1. Push your code to GitHub.
+2. Import the project into [Vercel](https://vercel.com).
+3. Add the environment variable `BACKEND_URL` in the Vercel dashboard.
 4. Deploy.
 
-## Add to an existing Next.js site
+### Integration into Existing Sites
+To add this bot to another Next.js project:
+1. Copy `components/ChatWidget.tsx`.
+2. Copy the `app/api/chat/route.ts` logic to your API folder.
+3. Import the styles from `app/theme.css` and `app/globals.css`.
+4. Place the `<ChatWidget />` component in your root `layout.tsx`.
 
-Copy `components/ChatWidget.tsx`, `app/api/chat/route.ts`, and the styles from
-`app/theme.css` + `app/globals.css` (everything from "launcher" down), then put
-`<ChatWidget />` in your root `layout.tsx`.
+## 🎨 Customization
+All visual aspects (colors, corner radius, fonts) are managed in `app/theme.css`. You can easily rebrand the bot by modifying the CSS variables in that file.

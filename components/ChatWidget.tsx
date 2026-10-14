@@ -50,8 +50,14 @@ export default function ChatWidget() {
   useEffect(() => save(msgs.filter((m) => !m.error)), [msgs]);
 
   useEffect(() => {
+    if (loading) {
+      listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: "smooth" });
+    }
+  }, [loading]);
+
+  useEffect(() => {
     listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: "smooth" });
-  }, [msgs, loading, open]);
+  }, [msgs, open]);
 
   useEffect(() => {
     if (open) setTimeout(() => inputRef.current?.focus(), 150);
