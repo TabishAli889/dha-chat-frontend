@@ -43,25 +43,64 @@ export default function ChatWidget() {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [slow, setSlow] = useState(false);
+  const [hydrated, setHydrated] = useState(false);
+
   const listRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const lastMsgRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => setMsgs(load()), []);
-  useEffect(() => save(msgs.filter((m) => !m.error)), [msgs]);
+  /* ---------- storage ---------- */
+  useEffect(() => {
+    setMsgs(load());
+    setHydrated(true);
+  }, []);
 
   useEffect(() => {
-    const lastMsg = msgs[msgs.length - 1];
-    if (open || (lastMsg && lastMsg.role === "assistant")) {
-      listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: "smooth" });
-    }
-  }, [msgs, open]);
+    if (hydrated) save(msgs.filter((m) => !m.error));
+  }, [msgs, hydrated]);
 
+  /* ---------- scrolling ---------- */
+  function scrollToBottom(smooth = true) {
+    const list = listRef.current;
+    if (!list) return;
+    list.scrollTo({ top: list.scrollHeight, behavior: smooth ? "smooth" : "auto" });
+  }
+
+  // Scroll so the TOP of the last message sits at the top of the list.
+  function scrollToLastMessageStart() {
+    const list = listRef.current;
+    const el = lastMsgRef.current;
+    if (!list || !el) return;
+    const top =
+      el.getBoundingClientRect().top - list.getBoundingClientRect().top + list.scrollTop - 8;
+    list.scrollTo({ top: Math.max(top, 0), behavior: "smooth" });
+  }
+
+  // When messages change:
+  //  - user sent a message  -> go to bottom (typing dots become visible)
+  //  - assistant replied    -> show the START of the reply, not the end
   useEffect(() => {
-    if (loading) {
-      listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: "smooth" });
-    }
+    if (!hydrated || !open) return;
+    const last = msgs[msgs.length - 1];
+    if (!last) return;
+
+    requestAnimationFrame(() => {
+      if (last.role === "user") scrollToBottom();
+      else if (msgs.length > 1) scrollToLastMessageStart();
+    });
+  }, [msgs, hydrated, open]);
+
+  // When the typing indicator appears, make sure it's visible.
+  useEffect(() => {
+    if (loading) requestAnimationFrame(() => scrollToBottom());
   }, [loading]);
 
+  // When the panel opens, jump to the bottom instantly.
+  useEffect(() => {
+    if (open) requestAnimationFrame(() => scrollToBottom(false));
+  }, [open]);
+
+  /* ---------- focus + Escape ---------- */
   useEffect(() => {
     if (open) setTimeout(() => inputRef.current?.focus(), 150);
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
@@ -69,6 +108,7 @@ export default function ChatWidget() {
     return () => window.removeEventListener("keydown", onKey);
   }, [open]);
 
+  /* ---------- actions ---------- */
   async function send(text: string) {
     const message = text.trim();
     if (!message || loading) return;
@@ -78,6 +118,7 @@ export default function ChatWidget() {
       .map(({ role, content }) => ({ role, content }));
     setMsgs((m) => [...m.filter((x) => !x.error), { role: "user", content: message }]);
     setInput("");
+    if (inputRef.current) inputRef.current.style.height = "auto";
     setLoading(true);
     const slowTimer = setTimeout(() => setSlow(true), 8000);
 
@@ -89,7 +130,10 @@ export default function ChatWidget() {
       });
       const data = await r.json();
       if (!r.ok) throw new Error(data.error || "Something went wrong.");
-      setMsgs((m) => [...m, { role: "assistant", content: data.reply || "Sorry, I didn't get an answer." }]);
+      setMsgs((m) => [
+        ...m,
+        { role: "assistant", content: data.reply || "Sorry, I didn't get an answer." },
+      ]);
     } catch (e) {
       setMsgs((m) => [
         ...m,
@@ -145,21 +189,32 @@ export default function ChatWidget() {
             <button className="dhc-icon-btn" onClick={reset} title="New chat" aria-label="New chat">
               <RefreshIcon />
             </button>
-            <button className="dhc-icon-btn" onClick={() => setOpen(false)} title="Close" aria-label="Close">
+            <button
+              className="dhc-icon-btn"
+              onClick={() => setOpen(false)}
+              title="Close"
+              aria-label="Close"
+            >
               <CloseIcon />
             </button>
           </header>
 
           <div className="dhc-messages" ref={listRef} aria-live="polite">
             {msgs.map((m, i) => (
-              <div key={i} className={`dhc-row ${m.role}`}>
+              <div
+                key={i}
+                ref={i === msgs.length - 1 ? lastMsgRef : null}
+                className={`dhc-row ${m.role}`}
+              >
                 <div className={`dhc-bubble ${m.error ? "error" : ""}`}>
                   {m.role === "assistant" ? (
                     <ReactMarkdown
                       remarkPlugins={[remarkGfm]}
                       components={{
                         // eslint-disable-next-line @typescript-eslint/no-unused-vars
-                        a: ({ node, ...props }) => <a {...props} target="_blank" rel="noopener noreferrer" />,
+                        a: ({ node, ...props }) => (
+                          <a {...props} target="_blank" rel="noopener noreferrer" />
+                        ),
                       }}
                     >
                       {m.content}
@@ -235,19 +290,38 @@ export default function ChatWidget() {
 }
 
 /* ---------- icons ---------- */
-const svg = { width: 22, height: 22, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 2, strokeLinecap: "round" as const, strokeLinejoin: "round" as const };
+const svg = {
+  width: 22,
+  height: 22,
+  viewBox: "0 0 24 24",
+  fill: "none",
+  stroke: "currentColor",
+  strokeWidth: 2,
+  strokeLinecap: "round" as const,
+  strokeLinejoin: "round" as const,
+};
 const ChatIcon = () => (
-  <svg {...svg} width={26} height={26}><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12Z" /></svg>
+  <svg {...svg} width={26} height={26}>
+    <path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12Z" />
+  </svg>
 );
 const CloseIcon = () => (
-  <svg {...svg}><path d="M18 6 6 18M6 6l12 12" /></svg>
+  <svg {...svg}>
+    <path d="M18 6 6 18M6 6l12 12" />
+  </svg>
 );
 const SendIcon = () => (
-  <svg {...svg} width={20} height={20}><path d="M22 2 11 13M22 2l-7 20-4-9-9-4 20-7Z" /></svg>
+  <svg {...svg} width={20} height={20}>
+    <path d="M22 2 11 13M22 2l-7 20-4-9-9-4 20-7Z" />
+  </svg>
 );
 const RefreshIcon = () => (
-  <svg {...svg} width={18} height={18}><path d="M3 12a9 9 0 0 1 15.5-6.2L21 8M21 3v5h-5M21 12a9 9 0 0 1-15.5 6.2L3 16M3 21v-5h5" /></svg>
+  <svg {...svg} width={18} height={18}>
+    <path d="M3 12a9 9 0 0 1 15.5-6.2L21 8M21 3v5h-5M21 12a9 9 0 0 1-15.5 6.2L3 16M3 21v-5h5" />
+  </svg>
 );
 const HomeIcon = () => (
-  <svg {...svg} width={20} height={20}><path d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1V10Z" /></svg>
+  <svg {...svg} width={20} height={20}>
+    <path d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1V10Z" />
+  </svg>
 );
